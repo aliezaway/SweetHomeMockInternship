@@ -259,11 +259,14 @@ public class HomePrintableComponent extends JComponent implements Printable {
         int pageCount = getPageCount();
         // Find the level printed on this plan page
         if (homePrint.isPlanPrinted()) {
-          int levelPage = page - this.furniturePageCount;
+          int levelPage = 0;
           for (Level level : this.home.getLevels()) {
-            if (level.isViewable() && levelPage-- == 0) {
-              printedPlanLevel = level;
-              break;
+            if (level.isViewable()) {
+              if (levelPage == page - this.furniturePageCount) {
+                printedPlanLevel = level;
+                break;
+              }
+              levelPage++;
             }
           }
         }
