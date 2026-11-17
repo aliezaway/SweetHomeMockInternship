@@ -49,6 +49,7 @@ import javax.swing.JLabel;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePrint;
 import com.eteks.sweethome3d.model.LengthUnit;
+import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.viewcontroller.ContentManager;
 import com.eteks.sweethome3d.viewcontroller.HomeController;
 import com.eteks.sweethome3d.viewcontroller.PlanView;
@@ -212,6 +213,8 @@ public class HomePrintableComponent extends JComponent implements Printable {
     float imageableY = (float)pageFormat.getImageableY();
     float imageableHeight = (float)pageFormat.getImageableHeight();
     String header = null;
+    Object [] variableValues = null;
+    Level printedPlanLevel = null;
     float  xHeader = 0;
     float  yHeader = 0;
     float  xFixedHeader = 0;
@@ -253,7 +256,18 @@ public class HomePrintableComponent extends JComponent implements Printable {
         
         // Retrieve variable values
         int pageNumber = page + 1; 
-        int pageCount = getPageCount(); 
+        int pageCount = getPageCount();
+        // Counting the sections first gives the plan-relative page number, even
+        // when preview requests a later page before it has painted earlier ones.
+        if (homePrint.isPlanPrinted()) {
+          int levelPage = page - this.furniturePageCount;
+          for (Level level : this.home.getLevels()) {
+            if (level.isViewable() && levelPage-- == 0) {
+              printedPlanLevel = level;
+              break;
+            }
+          }
+        }
         String planScale = "?";
         if (homePrint.getPlanScale() != null) {
           planScale = "1/" + Math.round(1 / homePrint.getPlanScale());
@@ -277,12 +291,14 @@ public class HomePrintableComponent extends JComponent implements Printable {
           homeName = "";
         }
         String levelName = "";
-        if (this.home.getSelectedLevel() != null) {
-          levelName = this.home.getSelectedLevel().getName();
+        Level headerLevel = printedPlanLevel != null
+            ? printedPlanLevel : this.home.getSelectedLevel();
+        if (headerLevel != null) {
+          levelName = headerLevel.getName();
         }
         String homePresentationName = this.controller.getContentManager().getPresentationName(
              homeName, ContentManager.ContentType.SWEET_HOME_3D);
-        Object [] variableValues = new Object [] {
+        variableValues = new Object [] {
             pageNumber, pageCount, planScale, this.printDate, homePresentationName, homeName, levelName};
         
         // Create header text
@@ -330,6 +346,34 @@ public class HomePrintableComponent extends JComponent implements Printable {
           break;
       }
       pageFormat.setPaper(paper);
+
+      if (printedPlanLevel != null) {
+        // Multi-level plans are fitted to the remaining area after the header
+        // and footer, regardless of the stored single-plan scale setting.
+        Level selectedLevel = this.home.getSelectedLevel();
+        try {
+          this.home.setSelectedLevel(printedPlanLevel);
+          Float preferredScale = null;
+          if (planView instanceof PlanComponent) {
+            preferredScale = ((PlanComponent)planView).getPrintPreferredScale(g, pageFormat);
+          } else if (planView instanceof MultipleLevelsPlanPanel) {
+            preferredScale = ((MultipleLevelsPlanPanel)planView).getPrintPreferredScale(g, pageFormat);
+          }
+          variableValues[2] = preferredScale != null && preferredScale > 0
+              ? "1/" + Math.round(1 / preferredScale) : "?";
+        } finally {
+          this.home.setSelectedLevel(selectedLevel);
+        }
+        FontMetrics fontMetrics = g2D.getFontMetrics(this.headerFooterFont);
+        if (header != null) {
+          header = Variable.getMessageFormat(homePrint.getHeaderFormat()).format(variableValues).trim();
+          xHeader = ((float)pageFormat.getWidth() - fontMetrics.stringWidth(header)) / 2;
+        }
+        if (footer != null) {
+          footer = Variable.getMessageFormat(homePrint.getFooterFormat()).format(variableValues).trim();
+          xFooter = ((float)pageFormat.getWidth() - fontMetrics.stringWidth(footer)) / 2;
+        }
+      }
       
       if (clipBounds == null) {
         g2D.clipRect((int)pageFormat.getImageableX(), (int)pageFormat.getImageableY(), 
