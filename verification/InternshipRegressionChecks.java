@@ -28,6 +28,7 @@ public class InternshipRegressionChecks {
         descriptionAndVolume();
         planPagesAndFailures();
         tablePrintingAndFailures();
+        printedHeadersFollowPlanPages();
       } catch (Exception ex) {
         throw new RuntimeException(ex);
       }
@@ -139,6 +140,88 @@ public class InternshipRegressionChecks {
       check(table.printedLevelColumns == 1, "No duplicate Level when already visible");
       check(home.getFurnitureVisibleProperties().equals(withLevel), "Visible Level retained");
     } finally { g.dispose(); }
+  }
+  private static void printedHeadersFollowPlanPages() throws Exception {
+    Home home = threeLevels();
+    home.getLevels().get(1).setViewable(false);
+    // The visible floors have markedly different dimensions.
+    Wall topWall = new ArrayList<Wall>(home.getWalls()).get(2);
+    topWall.setXEnd(5000);
+    topWall.setYEnd(3000);
+    Level selected = home.getSelectedLevel();
+    home.setPrint(new HomePrint(HomePrint.PaperOrientation.PORTRAIT,
+        612, 792, 36, 36, 36, 36, true, true, false, 0.01f,
+        "Level: $level", "Scale: $planScale"));
+    final float[] renderedScale = new float[1];
+    final Level[] renderedLevel = new Level[1];
+    final boolean[] insidePlanPrint = new boolean[1];
+    final boolean[] failHeaderScale = new boolean[1];
+    SwingViewFactory views = new SwingViewFactory() {
+      @Override public View createFurnitureView(Home h, UserPreferences p, FurnitureController c) {
+        return new FurnitureTable(h, p) {
+          @Override public Printable getPrintable(JTable.PrintMode mode, MessageFormat header, MessageFormat footer) {
+            // Keep one furniture page without requiring a visible Swing window.
+            return (g, format, index) -> index == 0 ? Printable.PAGE_EXISTS : Printable.NO_SUCH_PAGE;
+          }
+        };
+      }
+      @Override public PlanView createPlanView(Home h, UserPreferences p, PlanController c) {
+        return new PlanComponent(h, p, null) {
+          @Override public float getPrintPreferredScale(Graphics g, PageFormat format) {
+            if (failHeaderScale[0]) throw new IllegalStateException("Injected header scale failure");
+            float scale = super.getPrintPreferredScale(g, format);
+            if (insidePlanPrint[0]) {
+              // This call is made by the actual renderer after it selects the
+              // requested floor, not by the header's preliminary calculation.
+              renderedScale[0] = scale;
+              renderedLevel[0] = h.getSelectedLevel();
+            }
+            return scale;
+          }
+          @Override public int print(Graphics g, PageFormat format, int index) {
+            insidePlanPrint[0] = true;
+            try { return super.print(g, format, index); }
+            finally { insidePlanPrint[0] = false; }
+          }
+        };
+      }
+      @Override public View createView3D(Home h, UserPreferences p, HomeController3D c) { return null; }
+    };
+    HomeController controller = new HomeController(home, PREFS, views, new FileContentManager(PREFS));
+    HomePrintableComponent printable = new HomePrintableComponent(home, controller, new Font("SansSerif", Font.PLAIN, 12));
+    check(printable.getPageCount() == 3, "Header test has furniture plus two viewable plans");
+    // Request the last page first, as a print preview can do.
+    for (int index : new int[] {2, 1}) {
+      renderedLevel[0] = null;
+      renderedScale[0] = Float.NaN;
+      ByteArrayOutputStream output = new ByteArrayOutputStream();
+      com.lowagie.text.Document document = new com.lowagie.text.Document(new com.lowagie.text.Rectangle(612, 792));
+      com.lowagie.text.pdf.PdfWriter writer = com.lowagie.text.pdf.PdfWriter.getInstance(document, output);
+      document.open();
+      Graphics2D graphics = writer.getDirectContent().createGraphics(612, 792);
+      try {
+        check(printable.print(graphics, page(), index) == Printable.PAGE_EXISTS, "Header plan page exists");
+      } finally { graphics.dispose(); document.close(); }
+      com.lowagie.text.pdf.PdfReader reader = new com.lowagie.text.pdf.PdfReader(output.toByteArray());
+      String text;
+      try { text = new com.lowagie.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1); }
+      finally { reader.close(); }
+      String expectedLevel = index == 1 ? "Level 0" : "Level 2";
+      check(renderedLevel[0] != null && expectedLevel.equals(renderedLevel[0].getName()),
+          "Actual plan renderer selects " + expectedLevel);
+      check(text.contains("Level: " + expectedLevel), "Printed header identifies " + expectedLevel);
+      check(text.contains("Scale: 1/" + Math.round(1 / renderedScale[0])), "Printed scale matches fitted plan");
+      check(!text.contains("Scale: 1/100"), "Multi-level header ignores obsolete fixed scale");
+      check(home.getSelectedLevel() == selected, "Header metadata restores selected level");
+    }
+    failHeaderScale[0] = true;
+    Graphics2D graphics = new BufferedImage(800, 1000, BufferedImage.TYPE_INT_RGB).createGraphics();
+    try {
+      try { printable.print(graphics, page(), 1); throw new AssertionError("Expected header scale failure"); }
+      catch (IllegalStateException expected) {
+        check(home.getSelectedLevel() == selected, "Header scale failure restores selected level");
+      }
+    } finally { graphics.dispose(); }
   }
   private static class CapturingTable extends FurnitureTable {
     int printedRows, printedLevelColumns; boolean fail;
