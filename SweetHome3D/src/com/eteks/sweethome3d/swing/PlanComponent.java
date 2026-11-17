@@ -2007,9 +2007,6 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    * Prints one page per viewable level, or the plan at the home print scale if there is no level.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
-    if (pageIndex < 0) {
-      return NO_SUCH_PAGE;
-    }
     if (this.home.getLevels().isEmpty()) {
       return printSelectedLevel(g, pageFormat, pageIndex, false);
     }
@@ -2021,6 +2018,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
           try {
             this.home.setSelectedLevel(level);
             printSelectedLevel(g, pageFormat, 0, true);
+            // An empty level still gets its own page
             return PAGE_EXISTS;
           } finally {
             this.home.setSelectedLevel(selectedLevel);
