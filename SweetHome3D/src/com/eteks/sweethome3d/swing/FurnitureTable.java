@@ -734,10 +734,13 @@ public class FurnitureTable extends JTable implements View, Printable {
     List<TableColumn> printedColumns = Collections.list(columnModel.getColumns());
     boolean hasLevelColumn = false;
     for (TableColumn column : printedColumns) {
-      hasLevelColumn |= HomePieceOfFurniture.SortableProperty.LEVEL.equals(column.getIdentifier());
+      if (HomePieceOfFurniture.SortableProperty.LEVEL.equals(column.getIdentifier())) {
+        hasLevelColumn = true;
+        break;
+      }
     }
     if (!hasLevelColumn && columnModel instanceof FurnitureTableColumnModel) {
-      // Reuse the available column without adding it to the on-screen model.
+      // Add the Level column to the printed table only
       printedColumns.add(((FurnitureTableColumnModel)columnModel).availableColumns.get(
           HomePieceOfFurniture.SortableProperty.LEVEL));
     }
@@ -804,13 +807,13 @@ public class FurnitureTable extends JTable implements View, Printable {
       Color oldGridColor = getGridColor();
       FurnitureFilter oldFilter = getFurnitureFilter();
       try {
-        // Change the filter only on the EDT, including print jobs on worker threads.
+        // Print the furniture of all viewable levels
         if (oldFilter != null) {
           setFurnitureFilter(null);
         }
         setColumnModel(printableColumnModel);
         if (OperatingSystem.isWindows()) {
-          // Add 3 pixels to columns to get a correct rendering.
+          // Add 3 pixels to columns to get a correct rendering
           updateTableColumnsWidth(3);
         } else {
           updateTableColumnsWidth(0);
@@ -819,7 +822,7 @@ public class FurnitureTable extends JTable implements View, Printable {
         Printable printable = getPrintable(PrintMode.FIT_WIDTH, null, null);
         return printable.print(g, pageFormat, pageIndex);
       } finally {
-        // Restore the screen even when rendering raises a PrinterException.
+        // Restore column model, grid color and filter to their previous values
         setColumnModel(oldColumnModel);
         setGridColor(oldGridColor);
         if (oldFilter != null) {

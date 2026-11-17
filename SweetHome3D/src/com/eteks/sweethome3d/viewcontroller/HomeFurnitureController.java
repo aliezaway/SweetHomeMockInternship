@@ -591,8 +591,8 @@ public class HomeFurnitureController implements Controller {
    * Returns <code>true</code> if the given <code>property</code> is editable.
    * Depending on whether a property is editable or not, the view associated to this controller
    * may render it differently.
-   * Price is read-only. Light power and visibility depend on the current selection;
-   * all other properties, including the description, are editable.
+   * The implementation of this method returns <code>false</code> for <code>PRICE</code>, depends on the
+   * selection for <code>LIGHT_POWER</code> and <code>VISIBLE</code>, and returns <code>true</code> otherwise.
    */
   public boolean isPropertyEditable(Property property) {
     switch (property) {

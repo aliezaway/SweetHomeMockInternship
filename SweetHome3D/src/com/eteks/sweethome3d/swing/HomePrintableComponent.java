@@ -257,8 +257,7 @@ public class HomePrintableComponent extends JComponent implements Printable {
         // Retrieve variable values
         int pageNumber = page + 1; 
         int pageCount = getPageCount();
-        // Counting the sections first gives the plan-relative page number, even
-        // when preview requests a later page before it has painted earlier ones.
+        // Find the level printed on this plan page
         if (homePrint.isPlanPrinted()) {
           int levelPage = page - this.furniturePageCount;
           for (Level level : this.home.getLevels()) {
@@ -348,8 +347,7 @@ public class HomePrintableComponent extends JComponent implements Printable {
       pageFormat.setPaper(paper);
 
       if (printedPlanLevel != null) {
-        // Multi-level plans are fitted to the remaining area after the header
-        // and footer, regardless of the stored single-plan scale setting.
+        // Use the scale of the level printed on this page
         Level selectedLevel = this.home.getSelectedLevel();
         try {
           this.home.setSelectedLevel(printedPlanLevel);
@@ -387,7 +385,6 @@ public class HomePrintableComponent extends JComponent implements Printable {
     View furnitureView = this.controller.getFurnitureController().getView();
     if (furnitureView != null 
         && (homePrint == null || homePrint.isFurniturePrinted())) {
-      // FurnitureTable prints all viewable levels with a print-only Level column.
       pageExists = ((Printable)furnitureView).print(g2D, pageFormat, page);
       if (pageExists == PAGE_EXISTS
           && !this.printablePages.contains(page)) {
