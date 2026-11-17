@@ -195,7 +195,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             controller.removePropertyChangeListener(HomeFurnitureController.Property.DESCRIPTION, descriptionChangeListener);
             String description = descriptionTextField.getText(); 
             if (description == null || description.trim().length() == 0) {
-              controller.setDescription(null);
+              controller.setDescription("");
             } else {
               controller.setDescription(description);
             }
