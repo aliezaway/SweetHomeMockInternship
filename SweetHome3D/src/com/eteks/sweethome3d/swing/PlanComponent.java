@@ -2015,15 +2015,18 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     }
     int levelPage = 0;
     for (Level level : this.home.getLevels()) {
-      if (level.isViewable() && levelPage++ == pageIndex) {
-        Level selectedLevel = this.home.getSelectedLevel();
-        try {
-          this.home.setSelectedLevel(level);
-          printSelectedLevel(g, pageFormat, 0, true);
-          return PAGE_EXISTS;
-        } finally {
-          this.home.setSelectedLevel(selectedLevel);
+      if (level.isViewable()) {
+        if (levelPage == pageIndex) {
+          Level selectedLevel = this.home.getSelectedLevel();
+          try {
+            this.home.setSelectedLevel(level);
+            printSelectedLevel(g, pageFormat, 0, true);
+            return PAGE_EXISTS;
+          } finally {
+            this.home.setSelectedLevel(selectedLevel);
+          }
         }
+        levelPage++;
       }
     }
     return NO_SUCH_PAGE;
